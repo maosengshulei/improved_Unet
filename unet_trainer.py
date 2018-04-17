@@ -18,6 +18,7 @@ import tqdm
 import fcn
 import utils
 
+
 def cyclic_lr(epoch, init_lr=1e-4, num_epochs_per_cycle=5, cycle_epochs_decay=2, lr_decay_factor=0.5):
     epoch_in_cycle = epoch % num_epochs_per_cycle
     lr = init_lr * (lr_decay_factor ** (epoch_in_cycle // cycle_epochs_decay))
@@ -69,7 +70,8 @@ class Trainer(object):
                 f.write(','.join(self.log_headers) + '\n')
 
         self.epoch = 0
-        self.optim = self.opt(cyclic_lr(self.epoch))
+        #self.optim = self.opt(cyclic_lr(self.epoch))
+        self.optim=self.opt
         self.iteration = 0
         self.max_iter = max_iter
         self.best_mean_iu = 0
@@ -177,7 +179,7 @@ class Trainer(object):
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
             lr=cyclic_lr(self.epoch)
-            self.optim=self.opt(lr)
+            #self.optim=self.opt(lr)
             self.optim.zero_grad()
             score = self.model(data)
             score=torch.squeeze(score,1)
@@ -188,7 +190,10 @@ class Trainer(object):
             #if np.isnan(float(loss.data[0])):
             #    raise ValueError('loss is nan while training')
             loss.backward()
-            self.optim.step()
+            for optimizer in self.optim:
+            	optimizer.step()
+            #self.optim.step()
+
 
             metrics = []
             mask1=(F.sigmoid(score.data))>0.5

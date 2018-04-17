@@ -12,17 +12,17 @@ sys.path.append('E:\\VOC_data\\TernausNet')
 import unet_models
 import plaque
 import unet_trainer
-
+from models import ModelBuilder, SegmentationModule
 
 configurations = {
     # same configuration as original work
     # https://github.com/shelhamer/fcn.berkeleyvision.org
     1: dict(
-        max_iteration=100000,
-        lr=1.0e-10,
-        momentum=0.99,
-        weight_decay=0.0005,
-        interval_validate=800,
+        #max_iteration=100000,
+        #lr=1.0e-10,
+        #momentum=0.99,
+        #weight_decay=0.0005,
+        interval_validate=1200,
     )
 }
 
@@ -82,13 +82,49 @@ def get_parameters(model, bias=False):
 
 here = osp.dirname(osp.abspath(__file__))
 
+def create_optimizers(nets, args):
+    (net_encoder, net_decoder) = nets
+    optimizer_encoder = torch.optim.SGD(
+        net_encoder.parameters(),
+        lr=args.lr_encoder,
+        momentum=args.beta1,
+        weight_decay=args.weight_decay)
+    optimizer_decoder = torch.optim.SGD(
+        net_decoder.parameters(),
+        lr=args.lr_decoder,
+        momentum=args.beta1,
+        weight_decay=args.weight_decay)
+    return (optimizer_encoder, optimizer_decoder)
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--gpu', type=int, required=True)
     parser.add_argument('-c', '--config', type=int, default=1,
                         choices=configurations.keys())
+    parser.add_argument('--arch_encoder', default='resnet50_dilated8',
+                        help="architecture of net_encoder")
+    parser.add_argument('--arch_decoder', default='c1_bilinear',
+                        help="architecture of net_decoder")
+    parser.add_argument('--weights_encoder', default='',
+                        help="weights to finetune net_encoder")
+    parser.add_argument('--weights_decoder', default='',
+                        help="weights to finetune net_decoder")
+    parser.add_argument('--fc_dim', default=2048, type=int,
+                        help='number of features between encoder and decoder')
+    parser.add_argument('--lr_encoder', default=2e-2, type=float, help='LR')
+    parser.add_argument('--lr_decoder', default=2e-2, type=float, help='LR')
+    parser.add_argument('--lr_pow', default=0.9, type=float,
+                        help='power in poly to drop LR')
+    parser.add_argument('--beta1', default=0.9, type=float,
+                        help='momentum for sgd, beta1 for adam')
+    parser.add_argument('--weight_decay', default=1e-4, type=float,
+                        help='weights regularizer')
+    parser.add_argument('--fix_bn', default=0, type=int,
+                        help='fix bn params')
+
     parser.add_argument('--resume', help='Checkpoint path')
+
     args = parser.parse_args()
 
     gpu = args.gpu
@@ -120,7 +156,22 @@ def main():
 
     # 2. model
 
-    model = unet_models.unet11(pretrained=False)
+    #model = unet_models.unet11(pretrained=False)
+    builder = ModelBuilder()
+    net_encoder = builder.build_encoder(
+        arch=args.arch_encoder,
+        fc_dim=args.fc_dim,
+        weights=args.weights_encoder)
+    net_decoder = builder.build_decoder(
+        arch=args.arch_decoder,
+        fc_dim=args.fc_dim,
+        num_class=args.num_class,
+        weights=args.weights_decoder)
+    model = SegmentationModule(
+            net_encoder, net_decoder)
+    nets=(net_encoder,net_decoder)
+
+
     start_epoch = 0
     start_iteration = 0
     if resume:
@@ -136,8 +187,8 @@ def main():
 
     # 3. optimizer
 
-    optim = lambda lr: torch.optim.Adam(model.parameters(), lr=lr)
-
+    #optim = lambda lr: torch.optim.Adam(model.parameters(), lr=lr)
+    optim = create_optimizers(nets, args)
 
     trainer = unet_trainer.Trainer(
         cuda=cuda,
