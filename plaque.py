@@ -53,15 +53,17 @@ class Plaqueseg(data.Dataset):
             return img, lbl
 
     def transform(self, img, lbl):
-        #img = img[:, :, ::-1]  # RGB -> BGR
+        img = img[:, :, ::-1]  # RGB -> BGR
         img = img.astype(np.float64)
         #img -= self.mean_bgr
-        dt_trans=torchvision.transforms.Compose([torchvision.transforms.ToTensor(),
-        torchvision.transforms.Normalize(mean=[0.485,0.456,0.406],std=[0.229,0.224,0.225])])
-        img=dt_trans(img)
-        #img = img.transpose(2, 0, 1)
-        ###img = torch.from_numpy(img).float()
+        dt_trans=torchvision.transforms.Compose([
+        torchvision.transforms.Normalize(mean=[102.9801,115.9465,122.7717],std=[1.,1.,1.])])
+
+        img = img.transpose(2, 0, 1)
+        img = torch.from_numpy(img).float()
         lbl = torch.from_numpy(lbl).float()
+        img=dt_trans(img)
+
         return img, lbl
 
     def untransform(self, img, lbl):

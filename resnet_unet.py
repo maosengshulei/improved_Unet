@@ -1,14 +1,14 @@
 import torch
 import torch.nn as nn
 import torchvision
-
+import resnet
 model_urls = {
     'resnet50': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet50-imagenet.pth',
     'resnet101': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet101-imagenet.pth'
 }
 
 
-class SegmentationModule(nn.module):
+class SegmentationModule(nn.Module):
     def __init__(self, net_enc, net_dec):
         super(SegmentationModule, self).__init__()
         self.encoder = net_enc
@@ -234,6 +234,7 @@ class C1Bilinear(nn.Module):
         else:
             x = nn.functional.log_softmax(x, dim=1)
         '''
+        x = nn.functional.upsample(x, scale_factor=8, mode='bilinear')
         return x
 
 

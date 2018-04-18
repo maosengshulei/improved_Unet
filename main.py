@@ -12,17 +12,17 @@ sys.path.append('E:\\VOC_data\\TernausNet')
 import unet_models
 import plaque
 import unet_trainer
-from models import ModelBuilder, SegmentationModule
+from resnet_unet import ModelBuilder, SegmentationModule
 
 configurations = {
     # same configuration as original work
     # https://github.com/shelhamer/fcn.berkeleyvision.org
     1: dict(
-        #max_iteration=100000,
+        max_iteration=100000,
         #lr=1.0e-10,
         #momentum=0.99,
         #weight_decay=0.0005,
-        interval_validate=1200,
+        interval_validate=400,
     )
 }
 
@@ -148,11 +148,11 @@ def main():
       #  batch_size=1, shuffle=True, **kwargs)
     train_loader = torch.utils.data.DataLoader(
         plaque.Plaqueseg(root, split='train', transform=True),
-        batch_size=4, shuffle=True, **kwargs)
+        batch_size=2, shuffle=True, **kwargs)
     val_loader = torch.utils.data.DataLoader(
         plaque.Plaqueseg(
             root, split='val', transform=True),
-        batch_size=4, shuffle=False, **kwargs)
+        batch_size=2, shuffle=False, **kwargs)
 
     # 2. model
 
@@ -165,7 +165,7 @@ def main():
     net_decoder = builder.build_decoder(
         arch=args.arch_decoder,
         fc_dim=args.fc_dim,
-        num_class=args.num_class,
+        num_class=1,
         weights=args.weights_decoder)
     model = SegmentationModule(
             net_encoder, net_decoder)
@@ -179,9 +179,7 @@ def main():
         model.load_state_dict(checkpoint['model_state_dict'])
         start_epoch = checkpoint['epoch']
         start_iteration = checkpoint['iteration']
-    else:
-        carvana = unet_models.unet11(pretrained='vgg')
-        model=carvana
+
     if cuda:
         model = model.cuda()
 

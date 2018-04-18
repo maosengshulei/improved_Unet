@@ -146,7 +146,7 @@ class Trainer(object):
             'epoch': self.epoch,
             'iteration': self.iteration,
             'arch': self.model.__class__.__name__,
-            'optim_state_dict': self.optim.state_dict(),
+            #'optim_state_dict': self.optim.state_dict(),
             'model_state_dict': self.model.state_dict(),
             'best_mean_iu': self.best_mean_iu,
         }, osp.join(self.out, 'checkpoint.pth.tar'))
@@ -178,9 +178,11 @@ class Trainer(object):
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data), Variable(target)
-            lr=cyclic_lr(self.epoch)
+            #lr=cyclic_lr(self.epoch)
             #self.optim=self.opt(lr)
-            self.optim.zero_grad()
+            for optimizer in self.optim:
+            	optimizer.zero_grad()
+
             score = self.model(data)
             score=torch.squeeze(score,1)
 
