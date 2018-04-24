@@ -102,9 +102,9 @@ def main():
     parser.add_argument('-g', '--gpu', type=int, required=True)
     parser.add_argument('-c', '--config', type=int, default=1,
                         choices=configurations.keys())
-    parser.add_argument('--arch_encoder', default='resnet50_dilated8',
+    parser.add_argument('--arch_encoder', default='resnet50',
                         help="architecture of net_encoder")
-    parser.add_argument('--arch_decoder', default='c1_bilinear',
+    parser.add_argument('--arch_decoder', default='c2_bilinear',
                         help="architecture of net_decoder")
     parser.add_argument('--weights_encoder', default='',
                         help="weights to finetune net_encoder")

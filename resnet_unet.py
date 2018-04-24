@@ -32,6 +32,40 @@ def conv3x3_bn_relu(in_planes, out_planes, stride=1):
             nn.ReLU(inplace=True),
             )
 
+
+class DecoderBlockV2(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 middle_channels,
+                 out_channels,
+                 is_deconv=False):
+        
+        super(DecoderBlockV2, self).__init__()
+        self.in_channels = in_channels
+
+        if is_deconv:
+            """
+                Paramaters for Deconvolution were chosen to avoid artifacts, following
+                link https://distill.pub/2016/deconv-checkerboard/
+            """
+
+            self.block = nn.Sequential(
+                conv3x3_bn_relu(in_channels, middle_channels),
+                nn.ConvTranspose2d(middle_channels, out_channels, kernel_size=4, stride=2,
+                                   padding=1),
+                nn.ReLU(inplace=True)
+            )
+        else:
+            self.block = nn.Sequential(
+                nn.Upsample(scale_factor=2, mode='bilinear'),
+                conv3x3_bn_relu(in_channels, middle_channels),
+                conv3x3_bn_relu(middle_channels, out_channels),
+            )
+
+    def forward(self, x):
+        return self.block(x)
+
+
 class ModelBuilder():
     # custom weights initialization
     '''
@@ -96,6 +130,11 @@ class ModelBuilder():
                 num_class=num_class,
                 fc_dim=fc_dim,
                 use_softmax=use_softmax)
+        elif arch == 'c2_bilinear':
+            net_decoder = C2Bilinear(
+                num_class=num_class,
+                num_filters=32,
+                is_deconv=False)
         elif arch == 'ppm_bilinear':
             net_decoder = PPMBilinear(
                 num_class=num_class,
@@ -139,16 +178,18 @@ class Resnet(nn.Module):
         self.layer4 = orig_resnet.layer4
 
     def forward(self, x):
+        conv_out=[]
         x = self.relu1(self.bn1(self.conv1(x)))
+        
         x = self.relu2(self.bn2(self.conv2(x)))
         x = self.relu3(self.bn3(self.conv3(x)))
         x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        return x
+        conv_out.append(x)
+        x = self.layer1(x);conv_out.append(x)
+        x = self.layer2(x);conv_out.append(x)
+        x = self.layer3(x);conv_out.append(x)
+        x = self.layer4(x);conv_out.append(x)
+        return conv_out
 
 
 class ResnetDilated(nn.Module):
@@ -235,6 +276,32 @@ class C1Bilinear(nn.Module):
             x = nn.functional.log_softmax(x, dim=1)
         '''
         x = nn.functional.upsample(x, scale_factor=8, mode='bilinear')
+        return x
+
+class C2Bilinear(nn.Module):
+    def __init__(self,num_class=1,num_filters=32,is_deconv=False):
+        super(C2Bilinear,self).__init__()
+        self.center = DecoderBlockV2(2048, num_filters * 8 * 2, num_filters * 8,is_deconv)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dec5 = DecoderBlockV2(2048 + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)
+        self.dec4 = DecoderBlockV2(1024 + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)
+        self.dec3 = DecoderBlockV2(512 + num_filters * 8, num_filters * 4 * 2, num_filters * 2, is_deconv)
+        self.dec2 = DecoderBlockV2(256 + num_filters * 2, num_filters * 2 * 2, num_filters * 2 * 2, is_deconv)
+        self.dec1 = DecoderBlockV2(num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv)
+        self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+
+        # last conv
+        self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
+
+    def forward(self,conv_out):
+        center=self.center(self.pool(conv_out[-1]))
+        dec5=self.dec5(torch.cat([cat,conv_out[-1]],1))
+        dec4 = self.dec4(torch.cat([dec5, conv_out[-2]], 1))
+        dec3 = self.dec3(torch.cat([dec4, conv_out[-3]], 1))
+        dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
+        dec1 = self.dec1(dec2)
+        x=self.cbr(dec1)
+        x = self.conv_last(x)
         return x
 
 
