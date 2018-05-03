@@ -244,7 +244,7 @@ class ResnetDilated(nn.Module):
         x = self.relu2(self.bn2(self.conv2(x)))
         x = self.relu3(self.bn3(self.conv3(x)))
         x = self.maxpool(x)
-
+        conv_out.append(x)
         x = self.layer1(x); conv_out.append(x);
         x = self.layer2(x); conv_out.append(x);
         x = self.layer3(x); conv_out.append(x);
@@ -300,6 +300,33 @@ class C2Bilinear(nn.Module):
         dec3 = self.dec3(torch.cat([dec4, conv_out[-3]], 1))
         dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
         dec1 = self.dec1(dec2)
+        x=self.cbr(dec1)
+        x = self.conv_last(x)
+        return x
+
+
+class C2Bilinearwithastorous(nn.Module):
+    def __init__(self,num_class=1,num_filters=32,is_deconv=False):
+        super(C2Bilinear,self).__init__()
+        self.center = DecoderBlockV2(2048, num_filters * 8 * 2, num_filters * 8,is_deconv)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dec3 = DecoderBlockV2(2048 + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)
+        self.dec2 = DecoderBlockV2(256 + num_filters * 2, num_filters * 2 * 2, num_filters * 2 * 2, is_deconv)
+        self.dec1 = DecoderBlockV2(num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv)
+        #self.dec2 = DecoderBlockV2(256 + num_filters * 2, num_filters * 2 * 2, num_filters * 2 * 2, is_deconv)
+        #self.dec1 = DecoderBlockV2(num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv)
+        self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+
+        # last conv
+        self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
+
+    def forward(self,conv_out):
+        center=self.center(self.pool(conv_out[-1]))
+        dec3=self.dec3(torch.cat([cat,conv_out[-1]],1))
+        dec2 = self.dec2(torch.cat([dec5, conv_out[-4], 1))
+        dec1 = self.dec1(dec2)
+        #dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
+        #dec1 = self.dec1(dec2)
         x=self.cbr(dec1)
         x = self.conv_last(x)
         return x

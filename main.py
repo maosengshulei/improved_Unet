@@ -176,7 +176,10 @@ def main():
     start_iteration = 0
     if resume:
         checkpoint = torch.load(resume)
-        model.load_state_dict(checkpoint['model_state_dict'])
+        net_encoder.load_state_dict(checkpoint['encoder_model_state_dict'])
+        net_decoder.load_state_dict(checkpoint['decoder_model_state_dict'])
+        model=SegmentationModule(net_encoder,net_decoder)
+        nets=(net_encoder,net_decoder)
         start_epoch = checkpoint['epoch']
         start_iteration = checkpoint['iteration']
 

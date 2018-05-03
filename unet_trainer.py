@@ -147,7 +147,8 @@ class Trainer(object):
             'iteration': self.iteration,
             'arch': self.model.__class__.__name__,
             #'optim_state_dict': self.optim.state_dict(),
-            'model_state_dict': self.model.state_dict(),
+            'encoder_model_state_dict': self.model.encoder.state_dict(),
+            'decoder_model_state_dict': self.model.decoder.state_dict(),
             'best_mean_iu': self.best_mean_iu,
         }, osp.join(self.out, 'checkpoint.pth.tar'))
         if is_best:
