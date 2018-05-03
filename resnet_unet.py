@@ -39,7 +39,7 @@ class DecoderBlockV2(nn.Module):
                  middle_channels,
                  out_channels,
                  is_deconv=False):
-        
+
         super(DecoderBlockV2, self).__init__()
         self.in_channels = in_channels
 
@@ -180,7 +180,7 @@ class Resnet(nn.Module):
     def forward(self, x):
         conv_out=[]
         x = self.relu1(self.bn1(self.conv1(x)))
-        
+
         x = self.relu2(self.bn2(self.conv2(x)))
         x = self.relu3(self.bn3(self.conv3(x)))
         x = self.maxpool(x)
@@ -295,7 +295,7 @@ class C2Bilinear(nn.Module):
 
     def forward(self,conv_out):
         center=self.center(self.pool(conv_out[-1]))
-        dec5=self.dec5(torch.cat([cat,conv_out[-1]],1))
+        dec5=self.dec5(torch.cat([center,conv_out[-1]],1))
         dec4 = self.dec4(torch.cat([dec5, conv_out[-2]], 1))
         dec3 = self.dec3(torch.cat([dec4, conv_out[-3]], 1))
         dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
