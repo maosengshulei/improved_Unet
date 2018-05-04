@@ -135,6 +135,12 @@ class ModelBuilder():
                 num_class=num_class,
                 num_filters=32,
                 is_deconv=False)
+        elif arch == 'c2_bilinearwithastorous':
+            net_decoder = C2Bilinearwithastorous(
+                num_class=num_class,
+                num_filters=32,
+                is_deconv=False)
+
         elif arch == 'ppm_bilinear':
             net_decoder = PPMBilinear(
                 num_class=num_class,
@@ -250,9 +256,9 @@ class ResnetDilated(nn.Module):
         x = self.layer3(x); conv_out.append(x);
         x = self.layer4(x); conv_out.append(x);
 
-        if return_feature_maps:
-            return conv_out
-        return [x]
+
+        return conv_out
+
 
 class C1Bilinear(nn.Module):
     def __init__(self, num_class=1, fc_dim=2048, use_softmax=False):
@@ -300,6 +306,34 @@ class C2Bilinear(nn.Module):
         dec3 = self.dec3(torch.cat([dec4, conv_out[-3]], 1))
         dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
         dec1 = self.dec1(dec2)
+        x=self.cbr(dec1)
+        x = self.conv_last(x)
+        return x
+
+
+class C2Bilinearwithastorous(nn.Module):
+    def __init__(self,num_class=1,num_filters=32,is_deconv=False):
+        super(C2Bilinearwithastorous,self).__init__()
+        self.center = DecoderBlockV2(2048, num_filters * 8 * 2, num_filters * 8,is_deconv)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dec4 = DecoderBlockV2(2048 + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)
+        self.dec3 = DecoderBlockV2(512 + num_filters * 8, num_filters * 4 * 2, num_filters * 2 , is_deconv)
+        self.dec2 = DecoderBlockV2(256 + num_filters * 2 , num_filters * 2 * 2, num_filters*2*2, is_deconv)
+        #self.dec2 = DecoderBlockV2(256 + num_filters * 2, num_filters * 2 * 2, num_filters * 2 * 2, is_deconv)
+        self.dec1 = DecoderBlockV2(num_filters * 2 * 2, num_filters * 2 * 2, num_filters, is_deconv)
+        self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+
+        # last conv
+        self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
+
+    def forward(self,conv_out):
+        center=self.center(self.pool(conv_out[-1]))
+        dec4=self.dec4(torch.cat([center,conv_out[-1]],1))
+        dec3=self.dec3(torch.cat([dec4,conv_out[-3]],1))
+        dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
+        dec1 = self.dec1(dec2)
+        #dec2 = self.dec2(torch.cat([dec3, conv_out[-4]], 1))
+        #dec1 = self.dec1(dec2)
         x=self.cbr(dec1)
         x = self.conv_last(x)
         return x

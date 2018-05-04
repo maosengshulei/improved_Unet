@@ -102,9 +102,9 @@ def main():
     parser.add_argument('-g', '--gpu', type=int, required=True)
     parser.add_argument('-c', '--config', type=int, default=1,
                         choices=configurations.keys())
-    parser.add_argument('--arch_encoder', default='resnet50',
+    parser.add_argument('--arch_encoder', default='resnet50_dilated16',
                         help="architecture of net_encoder")
-    parser.add_argument('--arch_decoder', default='c2_bilinear',
+    parser.add_argument('--arch_decoder', default='c2_bilinearwithastorous',
                         help="architecture of net_decoder")
     parser.add_argument('--weights_encoder', default='',
                         help="weights to finetune net_encoder")
@@ -176,7 +176,10 @@ def main():
     start_iteration = 0
     if resume:
         checkpoint = torch.load(resume)
-        model.load_state_dict(checkpoint['model_state_dict'])
+        net_encoder.load_state_dict(checkpoint['encoder_model_state_dict'])
+        net_decoder.load_state_dict(checkpoint['decoder_model_state_dict'])
+        model=SegmentationModule(net_encoder,net_decoder)
+        nets=(net_encoder,net_decoder)
         start_epoch = checkpoint['epoch']
         start_iteration = checkpoint['iteration']
 
