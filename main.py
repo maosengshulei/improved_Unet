@@ -104,7 +104,7 @@ def main():
                         choices=configurations.keys())
     parser.add_argument('--arch_encoder', default='resnet50_dilated16',
                         help="architecture of net_encoder")
-    parser.add_argument('--arch_decoder', default='c2_bilinearwithastorous',
+    parser.add_argument('--arch_decoder', default='c2_bilinearwithastorous16',
                         help="architecture of net_decoder")
     parser.add_argument('--weights_encoder', default='',
                         help="weights to finetune net_encoder")
