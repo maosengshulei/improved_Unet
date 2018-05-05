@@ -321,7 +321,7 @@ class C2Bilinear(nn.Module):
 class C2Bilinearwithastorous16(nn.Module):
 	#dialated16 and u-net decoder
     def __init__(self,num_class=1,num_filters=32,is_deconv=False):
-        super(C2Bilinearwithastorous,self).__init__()
+        super(C2Bilinearwithastorous16,self).__init__()
         self.center = DecoderBlockV2(2048, num_filters * 8 * 2, num_filters * 8,is_deconv)
         self.pool = nn.MaxPool2d(2, 2)
         self.dec4 = DecoderBlockV2(2048 + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)
@@ -349,7 +349,7 @@ class C2Bilinearwithastorous16(nn.Module):
 class C2Bilinearwithastorous8(nn.Module):
 	#dialated8 and u-net decoder
     def __init__(self,num_class=1,num_filters=32,is_deconv=False):
-        super(C2Bilinearwithastorous,self).__init__()
+        super(C2Bilinearwithastorous8,self).__init__()
         self.center = DecoderBlockV2(2048, num_filters * 8 * 2, num_filters * 8,is_deconv)
         self.pool = nn.MaxPool2d(2, 2)
         self.dec3 = DecoderBlockV2(2048 + num_filters * 8, num_filters * 8 * 2, num_filters * 8, is_deconv)

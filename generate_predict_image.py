@@ -12,7 +12,7 @@ from torch.utils import data
 from torch.autograd import Variable
 from resnet_unet import ModelBuilder, SegmentationModule
 
-checkpoint='/home/paperspace/DL/TernausNet/logs/best_result/model_best.pth.tar'
+checkpoint='/home/paperspace/DL/improved_Unet/logs/unet_resnet50/model_best.pth.tar'
 root = os.path.expanduser('~/data/datasets')
 
 class TestPlaqueseg(data.Dataset):
@@ -74,9 +74,9 @@ if __name__ == '__main__':
     #model=UNet11(pretrained=False)
     builder = ModelBuilder()
     net_encoder = builder.build_encoder(
-        arch='resnet50_dilated16')
+        arch='resnet50')
     net_decoder = builder.build_decoder(
-        arch='c2_bilinearwithastorous16',
+        arch='c2_bilinear',
         num_class=1)
     model = SegmentationModule(
             net_encoder, net_decoder)
