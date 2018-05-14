@@ -26,13 +26,14 @@ def cyclic_lr(epoch, init_lr=1e-4, num_epochs_per_cycle=5, cycle_epochs_decay=2,
 
 class Trainer(object):
 
-    def __init__(self, cuda, model, optimizer,
+    def __init__(self, cuda, model, optimizer,use_resnet,
                  train_loader, val_loader, out, max_iter,
                  sz_average=False, interval_validate=None):
         self.cuda = cuda
 
         self.model = model
         self.opt = optimizer
+        self.use_resnet=use_resnet
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -142,15 +143,25 @@ class Trainer(object):
         is_best = mean_iu > self.best_mean_iu
         if is_best:
             self.best_mean_iu = mean_iu
-        torch.save({
-            'epoch': self.epoch,
-            'iteration': self.iteration,
-            'arch': self.model.__class__.__name__,
-            #'optim_state_dict': self.optim.state_dict(),
-            'encoder_model_state_dict': self.model.encoder.state_dict(),
-            'decoder_model_state_dict': self.model.decoder.state_dict(),
-            'best_mean_iu': self.best_mean_iu,
-        }, osp.join(self.out, 'checkpoint.pth.tar'))
+        if self.use_resnet:
+        	torch.save({
+            	'epoch': self.epoch,
+            	'iteration': self.iteration,
+            	'arch': self.model.__class__.__name__,
+            	#'optim_state_dict': self.optim.state_dict(),
+            	'encoder_model_state_dict': self.model.encoder.state_dict(),
+            	'decoder_model_state_dict': self.model.decoder.state_dict(),
+            	'best_mean_iu': self.best_mean_iu,
+        	}, osp.join(self.out, 'checkpoint.pth.tar'))
+        else:
+        	torch.save({
+            	'epoch': self.epoch,
+            	'iteration': self.iteration,
+            	'arch': self.model.__class__.__name__,
+            	#'optim_state_dict': self.optim.state_dict(),
+            	'model_state_dict':self.model.state_dict(),
+            	'best_mean_iu': self.best_mean_iu,
+        	}, osp.join(self.out, 'checkpoint.pth.tar'))
         if is_best:
             shutil.copy(osp.join(self.out, 'checkpoint.pth.tar'),
                         osp.join(self.out, 'model_best.pth.tar'))

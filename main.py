@@ -102,6 +102,7 @@ def main():
     parser.add_argument('-g', '--gpu', type=int, required=True)
     parser.add_argument('-c', '--config', type=int, default=1,
                         choices=configurations.keys())
+    parser.add_argument('--use_resnet', type=int,default=True)
     parser.add_argument('--arch_encoder', default='resnet50',
                         help="architecture of net_encoder")
     parser.add_argument('--arch_decoder', default='c2_bilinear',
@@ -155,31 +156,40 @@ def main():
         batch_size=2, shuffle=False, **kwargs)
 
     # 2. model
-
-    #model = unet_models.unet11(pretrained=False)
-    builder = ModelBuilder()
-    net_encoder = builder.build_encoder(
-        arch=args.arch_encoder,
-        fc_dim=args.fc_dim,
-        weights=args.weights_encoder)
-    net_decoder = builder.build_decoder(
-        arch=args.arch_decoder,
-        fc_dim=args.fc_dim,
-        num_class=1,
-        weights=args.weights_decoder)
-    model = SegmentationModule(
+    
+    
+    if use_resnet:
+        builder = ModelBuilder()
+        net_encoder = builder.build_encoder(
+            arch=args.arch_encoder,
+            fc_dim=args.fc_dim,
+            weights=args.weights_encoder)
+        net_decoder = builder.build_decoder(
+            arch=args.arch_decoder,
+            fc_dim=args.fc_dim,
+            num_class=1,
+            weights=args.weights_decoder)
+        model = SegmentationModule(
             net_encoder, net_decoder)
-    nets=(net_encoder,net_decoder)
+        nets=(net_encoder,net_decoder)
+    else:
+        model = unet_models.unet11(pretrained=False)
+    
 
 
     start_epoch = 0
     start_iteration = 0
-    if resume:
+    if resume and use_resnet:
         checkpoint = torch.load(resume)
         net_encoder.load_state_dict(checkpoint['encoder_model_state_dict'])
         net_decoder.load_state_dict(checkpoint['decoder_model_state_dict'])
         model=SegmentationModule(net_encoder,net_decoder)
         nets=(net_encoder,net_decoder)
+        start_epoch = checkpoint['epoch']
+        start_iteration = checkpoint['iteration']
+    if resume and not use_resnet:
+        checkpoint=torch.load(resume)
+        model.load_state_dict(checkpoint['model_state_dict'])
         start_epoch = checkpoint['epoch']
         start_iteration = checkpoint['iteration']
 
@@ -189,12 +199,21 @@ def main():
     # 3. optimizer
 
     #optim = lambda lr: torch.optim.Adam(model.parameters(), lr=lr)
-    optim = create_optimizers(nets, args)
+    if use_resnet:
+        optim = create_optimizers(nets, args)
+    else:
+        optim=torch.optim.SGD(
+            model.parameters(),
+            lr=2e-2,
+            momentum=0.9,
+            weight_decay=1e-4)
+
 
     trainer = unet_trainer.Trainer(
         cuda=cuda,
         model=model,
         optimizer=optim,
+        use_resnet=use_resnet,
         train_loader=train_loader,
         val_loader=val_loader,
         out=out,
