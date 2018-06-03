@@ -52,14 +52,14 @@ class TestPlaqueseg(data.Dataset):
             return img,file_name
 
     def transform(self, img):
-        '''
+        
         dt_trans=torchvision.transforms.Compose([
         torchvision.transforms.Normalize(mean=[102.9801,115.9465,122.7717],std=[1.,1.,1.])])
         img = img.transpose(2, 0, 1)
         img = torch.from_numpy(img).float()
         return dt_trans(img)
-        '''
-        img=torch.from_numpy(np.moveaxis(img,-1,0)).float()
+        
+        #img=torch.from_numpy(np.moveaxis(img,-1,0)).float()
         return img
 
 
@@ -72,6 +72,7 @@ if __name__ == '__main__':
         num_workers=4,
         pin_memory=True
         )
+    '''
     new_root='./test'
     cuda=torch.cuda.is_available()
     model=UNet11(pretrained=False)
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     net_decoder.load_state_dict(check_point['decoder_model_state_dict'])
     model = SegmentationModule(
             net_encoder, net_decoder)
-    '''
+    
     if cuda:
         model=model.cuda()
 
