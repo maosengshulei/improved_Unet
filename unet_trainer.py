@@ -192,8 +192,12 @@ class Trainer(object):
             data, target = Variable(data), Variable(target)
             #lr=cyclic_lr(self.epoch)
             #self.optim=self.opt(lr)
-            for optimizer in self.optim:
-            	optimizer.zero_grad()
+            if self.use_resnet:
+                for optimizer in self.optim:
+                    optimizer.zero_grad()
+            else:
+                self.optim.zero_grad()
+
 
             score = self.model(data)
             score=torch.squeeze(score,1)
@@ -204,8 +208,11 @@ class Trainer(object):
             #if np.isnan(float(loss.data[0])):
             #    raise ValueError('loss is nan while training')
             loss.backward()
-            for optimizer in self.optim:
-            	optimizer.step()
+            if self.use_resnet:
+                for optimizer in self.optim:
+                    optimizer.step()
+            else:
+                self.optim.step()
             #self.optim.step()
 
 

@@ -53,6 +53,7 @@ class Plaqueseg(data.Dataset):
             return img, lbl
 
     def transform(self, img, lbl):
+        '''
         img = img[:, :, ::-1]  # RGB -> BGR
         img = img.astype(np.float64)
         #img -= self.mean_bgr
@@ -63,7 +64,9 @@ class Plaqueseg(data.Dataset):
         img = torch.from_numpy(img).float()
         lbl = torch.from_numpy(lbl).float()
         img=dt_trans(img)
-
+        '''
+        img=torch.from_numpy(np.moveaxis(img,-1,0)).float()
+        lbl=torch.from_numpy(np.moveaxis(lbl,-1,0)).float()
         return img, lbl
 
     def untransform(self, img, lbl):

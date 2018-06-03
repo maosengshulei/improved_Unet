@@ -132,6 +132,7 @@ def main():
     cfg = configurations[args.config]
     out = get_log_dir('unet11', args.config, cfg)
     resume = args.resume
+    use_resnet=args.use_resnet
 
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
     cuda = torch.cuda.is_available()
@@ -156,8 +157,8 @@ def main():
         batch_size=2, shuffle=False, **kwargs)
 
     # 2. model
-    
-    
+
+
     if use_resnet:
         builder = ModelBuilder()
         net_encoder = builder.build_encoder(
@@ -174,7 +175,7 @@ def main():
         nets=(net_encoder,net_decoder)
     else:
         model = unet_models.unet11(pretrained=False)
-    
+
 
 
     start_epoch = 0
