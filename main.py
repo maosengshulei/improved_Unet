@@ -105,7 +105,7 @@ def main():
     parser.add_argument('--use_resnet', type=int,default=True)
     parser.add_argument('--arch_encoder', default='resnet50',
                         help="architecture of net_encoder")
-    parser.add_argument('--arch_decoder', default='c2_bilinear',
+    parser.add_argument('--arch_decoder', default='ppm_bilinear',
                         help="architecture of net_decoder")
     parser.add_argument('--weights_encoder', default='',
                         help="weights to finetune net_encoder")
