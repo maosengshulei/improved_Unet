@@ -375,7 +375,7 @@ class C2Bilinearwithastorous8(nn.Module):
         return x
 
 class PPMBilinear(nn.Module):
-    def __init__(self, num_class=1 fc_dim=2048,
+    def __init__(self, num_class=1,fc_dim=2048,
                  use_softmax=False, pool_scales=(1, 2, 3, 6)):
         super(PPMBilinear, self).__init__()
         self.use_softmax = use_softmax
@@ -385,7 +385,7 @@ class PPMBilinear(nn.Module):
             self.ppm.append(nn.Sequential(
                 nn.AdaptiveAvgPool2d(scale),
                 nn.Conv2d(fc_dim, 512, kernel_size=1, bias=False),
-                SynchronizedBatchNorm2d(512),
+                nn.BatchNorm2d(512),
                 nn.ReLU(inplace=True)
             ))
         self.ppm = nn.ModuleList(self.ppm)
@@ -393,7 +393,7 @@ class PPMBilinear(nn.Module):
         self.conv_last = nn.Sequential(
             nn.Conv2d(fc_dim+len(pool_scales)*512, 512,
                       kernel_size=3, padding=1, bias=False),
-            SynchronizedBatchNorm2d(512),
+            nn.BatchNorm2d(512),
             nn.ReLU(inplace=True),
             nn.Dropout2d(0.1),
             nn.Conv2d(512, num_class, kernel_size=1)
@@ -408,15 +408,15 @@ class PPMBilinear(nn.Module):
             ppm_out.append(nn.functional.upsample(
                 pool_scale(conv5),
                 (input_size[2], input_size[3]),
-                mode='bilinear', align_corners=False))
+                mode='bilinear'))
         ppm_out = torch.cat(ppm_out, 1)
 
         x = self.conv_last(ppm_out)
 
-        
+
         x = nn.functional.upsample(
-            x, scale_factor=32, mode='bilinear', align_corners=False)
-        
+            x, scale_factor=32, mode='bilinear')
+
         return x
 
 
