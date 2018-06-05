@@ -27,14 +27,14 @@ def cyclic_lr(epoch, init_lr=1e-4, num_epochs_per_cycle=5, cycle_epochs_decay=2,
 class Trainer(object):
 
     def __init__(self, cuda, model, optimizer,use_resnet,
-                 train_loader, val_loader, out, max_iter,
+                 train_loader, val_loader, out, max_iter,deep_sup_factor,
                  sz_average=False, interval_validate=None):
         self.cuda = cuda
 
         self.model = model
         self.opt = optimizer
         self.use_resnet=use_resnet
-
+        self.deep_sup_factor=deep_sup_factor
         self.train_loader = train_loader
         self.val_loader = val_loader
 
@@ -93,10 +93,14 @@ class Trainer(object):
             if self.cuda:
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data, volatile=True), Variable(target)
-            score = self.model(data)
+
+
+            score,deep_score= self.model(data)
             score=torch.squeeze(score,1)
+
             creterion=Loss()
             loss = creterion(score, target)
+
             #if np.isnan(float(loss.data[0])):
             #    raise ValueError('loss is nan while validating')
             #val_loss += float(loss.data[0]) / len(data)
@@ -165,6 +169,7 @@ class Trainer(object):
         if is_best:
             shutil.copy(osp.join(self.out, 'checkpoint.pth.tar'),
                         osp.join(self.out, 'model_best.pth.tar'))
+            print('best_mean_iu={}'.format(self.best_mean_iu))
 
         if training:
             self.model.train()
@@ -198,12 +203,18 @@ class Trainer(object):
             else:
                 self.optim.zero_grad()
 
-
-            score = self.model(data)
-            score=torch.squeeze(score,1)
+            if self.deep_sup_factor>0:
+                score,deep_score=self.model(data)
+                score=torch.squeeze(score,1)
+                deep_score=torch.squeeze(deep_score,1)
+            else:
+                score = self.model(data)
+                score=torch.squeeze(score,1)
 
             creterion=Loss()
             loss=creterion(score,target)
+            if self.deep_sup_factor>0:
+                loss=loss+self.deep_sup_factor*creterion(deep_score,target)
             #loss /= len(data)
             #if np.isnan(float(loss.data[0])):
             #    raise ValueError('loss is nan while training')

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torchvision
 import resnet
+import resnext
 model_urls = {
     'resnet50': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet50-imagenet.pth',
     'resnet101': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet101-imagenet.pth'
@@ -9,15 +10,19 @@ model_urls = {
 
 
 class SegmentationModule(nn.Module):
-    def __init__(self, net_enc, net_dec):
+    def __init__(self, net_enc, net_dec,deep_sup_factor):
         super(SegmentationModule, self).__init__()
         self.encoder = net_enc
         self.decoder = net_dec
-
+        self.deep_sup_factor=deep_sup_factor
 
     def forward(self,img):
-        pred=self.decoder(self.encoder(img))
-        return pred
+        if self.deep_sup_factor>0:
+            pred,pred_sup=self.decoder(self.encoder(img))
+            return pred,pred_sup
+        else:
+            pred=self.decoder(self.encoder(img))
+            return pred
 
 def conv3x3(in_planes, out_planes, stride=1, has_bias=False):
     "3x3 convolution with padding"
@@ -107,6 +112,9 @@ class ModelBuilder():
             orig_resnet = resnet.__dict__['resnet50'](pretrained=pretrained)
             net_encoder = ResnetDilated(orig_resnet,
                                         dilate_scale=16)
+        elif arch == 'resnext50':
+            orig_resnext = resnext.__dict__['resnext50'](pretrained=pretrained)
+            net_encoder = Resnet(orig_resnext) # we can still use class Resnet
         else:
             raise Exception('Architecture undefined!')
 
@@ -264,6 +272,39 @@ class ResnetDilated(nn.Module):
 
         return conv_out
 
+class C1BilinearDeepSup(nn.Module):
+    def __init__(self, num_class=150, fc_dim=2048, use_softmax=False):
+        super(C1BilinearDeepSup, self).__init__()
+        self.use_softmax = use_softmax
+
+        self.cbr = conv3x3_bn_relu(fc_dim, fc_dim // 4, 1)
+        self.cbr_deepsup = conv3x3_bn_relu(fc_dim // 2, fc_dim // 4, 1)
+
+        # last conv
+        self.conv_last = nn.Conv2d(fc_dim // 4, num_class, 1, 1, 0)
+        self.conv_last_deepsup = nn.Conv2d(fc_dim // 4, num_class, 1, 1, 0)
+
+    def forward(self, conv_out, segSize=None):
+        conv5 = conv_out[-1]
+
+        x = self.cbr(conv5)
+        x = self.conv_last(x)
+        '''
+        if self.use_softmax:  # is True during inference
+            x = nn.functional.upsample(
+                x, size=segSize, mode='bilinear', align_corners=False)
+            x = nn.functional.softmax(x, dim=1)
+            return x
+        '''
+        x=nn.functional.upsample(x,scale_factor=16,mode='bilinear')
+        # deep sup
+        conv4 = conv_out[-2]
+        _ = self.cbr_deepsup(conv4)
+        _ = self.conv_last_deepsup(_)
+
+        _=nn.functional.upsample(_,scale_factor=16,mode='bilinear')
+
+        return (x, _)
 
 class C1Bilinear(nn.Module):
 	#dialated8 and upsample8

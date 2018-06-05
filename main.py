@@ -103,9 +103,9 @@ def main():
     parser.add_argument('-c', '--config', type=int, default=1,
                         choices=configurations.keys())
     parser.add_argument('--use_resnet', type=int,default=True)
-    parser.add_argument('--arch_encoder', default='resnet50',
+    parser.add_argument('--arch_encoder', default='resnext50',
                         help="architecture of net_encoder")
-    parser.add_argument('--arch_decoder', default='ppm_bilinear',
+    parser.add_argument('--arch_decoder', default='c1_bilinear',
                         help="architecture of net_decoder")
     parser.add_argument('--weights_encoder', default='',
                         help="weights to finetune net_encoder")
@@ -123,7 +123,8 @@ def main():
                         help='weights regularizer')
     parser.add_argument('--fix_bn', default=0, type=int,
                         help='fix bn params')
-
+    parser.add_argument('--deep_sup_factor', default=0.4, type=float,
+                        help='the weight of deep supervision loss')
     parser.add_argument('--resume', help='Checkpoint path')
 
     args = parser.parse_args()
@@ -133,7 +134,7 @@ def main():
     out = get_log_dir('unet11', args.config, cfg)
     resume = args.resume
     use_resnet=args.use_resnet
-
+    deep_sup_factor=args.deep_sup_factor
     os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu)
     cuda = torch.cuda.is_available()
 
@@ -171,7 +172,7 @@ def main():
             num_class=1,
             weights=args.weights_decoder)
         model = SegmentationModule(
-            net_encoder, net_decoder)
+            net_encoder, net_decoder,deep_sup_factor)
         nets=(net_encoder,net_decoder)
     else:
         model = unet_models.unet11(pretrained=False)
@@ -219,6 +220,7 @@ def main():
         val_loader=val_loader,
         out=out,
         max_iter=cfg['max_iteration'],
+        deep_sup_factor=deep_sup_factor,
         interval_validate=cfg.get('interval_validate', len(train_loader)),
     )
     trainer.epoch = start_epoch
