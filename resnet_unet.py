@@ -521,12 +521,12 @@ class PPMBilinearDeepsup(nn.Module):
         _ = self.dropout_deepsup(_)
         _ = self.conv_last_deepsup(_)
         _=nn.functional.upsample(_,scale_factor=16,mode='bilinear')
-        
+
 
         return (x, _)
 
 class UPerNet(nn.Module):
-    def __init__(self, num_class=150, fc_dim=4096,
+    def __init__(self, num_class=1, fc_dim=2048,
                  use_softmax=False, pool_scales=(1, 2, 3, 6),
                  fpn_inplanes=(256,512,1024,2048), fpn_dim=256):
         super(UPerNet, self).__init__()
@@ -540,7 +540,7 @@ class UPerNet(nn.Module):
             self.ppm_pooling.append(nn.AdaptiveAvgPool2d(scale))
             self.ppm_conv.append(nn.Sequential(
                 nn.Conv2d(fc_dim, 512, kernel_size=1, bias=False),
-                SynchronizedBatchNorm2d(512),
+                nn.BatchNorm2d(512),
                 nn.ReLU(inplace=True)
             ))
         self.ppm_pooling = nn.ModuleList(self.ppm_pooling)
@@ -552,7 +552,7 @@ class UPerNet(nn.Module):
         for fpn_inplane in fpn_inplanes[:-1]: # skip the top layer
             self.fpn_in.append(nn.Sequential(
                 nn.Conv2d(fpn_inplane, fpn_dim, kernel_size=1, bias=False),
-                SynchronizedBatchNorm2d(fpn_dim),
+                nn.BatchNorm2d(fpn_dim),
                 nn.ReLU(inplace=True)
             ))
         self.fpn_in = nn.ModuleList(self.fpn_in)
@@ -578,20 +578,20 @@ class UPerNet(nn.Module):
             ppm_out.append(pool_conv(nn.functional.upsample(
                 pool_scale(conv5),
                 (input_size[2], input_size[3]),
-                mode='bilinear', align_corners=False)))
+                mode='bilinear')))
         ppm_out = torch.cat(ppm_out, 1)
         f = self.ppm_last_conv(ppm_out)
 
         fpn_feature_list = [f]
-        for i in reversed(range(len(conv_out) - 1)):
+        for i in reversed(range(1,len(conv_out) - 1)):
             conv_x = conv_out[i]
-            conv_x = self.fpn_in[i](conv_x) # lateral branch
+            conv_x = self.fpn_in[i-1](conv_x) # lateral branch
 
             f = nn.functional.upsample(
-                f, size=conv_x.size()[2:], mode='bilinear', align_corners=False) # top-down branch
+                f, size=conv_x.size()[2:], mode='bilinear') # top-down branch
             f = conv_x + f
 
-            fpn_feature_list.append(self.fpn_out[i](f))
+            fpn_feature_list.append(self.fpn_out[i-1](f))
 
         fpn_feature_list.reverse() # [P2 - P5]
         output_size = fpn_feature_list[0].size()[2:]
@@ -600,7 +600,7 @@ class UPerNet(nn.Module):
             fusion_list.append(nn.functional.upsample(
                 fpn_feature_list[i],
                 output_size,
-                mode='bilinear', align_corners=False))
+                mode='bilinear'))
         fusion_out = torch.cat(fusion_list, 1)
         x = self.conv_last(fusion_out)
 

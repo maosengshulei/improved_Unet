@@ -94,8 +94,10 @@ class Trainer(object):
                 data, target = data.cuda(), target.cuda()
             data, target = Variable(data, volatile=True), Variable(target)
 
-
-            score,deep_score= self.model(data)
+            if self.deep_sup_factor>0:
+                score,deep_score= self.model(data)
+            else:
+                score=self.model(data)
             score=torch.squeeze(score,1)
 
             creterion=Loss()
