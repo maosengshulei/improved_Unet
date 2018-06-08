@@ -170,6 +170,10 @@ class ModelBuilder():
                 fc_dim=fc_dim,
                 use_softmax=use_softmax,
                 fpn_dim=512)
+        elif arch == 'deep_resunet':
+            net_decoder = deep_residual_unet(
+                num_class=num_class
+                )
         else:
             raise Exception('Architecture undefined!')
 
@@ -521,7 +525,7 @@ class PPMBilinearDeepsup(nn.Module):
         _ = self.dropout_deepsup(_)
         _ = self.conv_last_deepsup(_)
         _=nn.functional.upsample(_,scale_factor=16,mode='bilinear')
-        
+
 
         return (x, _)
 
@@ -615,24 +619,26 @@ class UPerNet(nn.Module):
 
         x = nn.functional.log_softmax(x, dim=1)
 		'''
-        return x
-
+        return
 class deep_residual_unet(nn.Module):
-	def __init__(self,num_class=1):
-		super(deep_residual_unet,self).__init__()
-		self.center=self._make_layer(Bottleneck,32*8,1,stride=2)
-		self.dec5=self._make_layer(Bottleneck,32*8,1,stride=1)
-		self.dec4=self._make_layer(Bottleneck,32*4,1,stride=1)
-		self.dec3=self._make_layer(Bottleneck,32*2,1,stride=1)
-		self.dec2=self._make_layer(Bottleneck,32,1,stride=1)
-		self.dec1=self._make_layer(Bottleneck,16,1,stride=1)
-		self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
-		self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+
+    def __init__(self,num_class=1):
+        self.inplanes = 2048
+	super(deep_residual_unet,self).__init__()
+        
+        self.center=self._make_layer(Bottleneck,32*8,1,stride=2)
+	self.dec5=self._make_layer(Bottleneck,32*8,1,stride=1)
+        self.dec4=self._make_layer(Bottleneck,32*4,1,stride=1)
+	self.dec3=self._make_layer(Bottleneck,32*2,1,stride=1)
+	self.dec2=self._make_layer(Bottleneck,32,1,stride=1)
+	self.dec1=self._make_layer(Bottleneck,16,1,stride=1)
+	self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
+	self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
 
         # last conv
         self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
 
-	def _make_layer(self, block, planes, blocks, stride=1):
+    def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
