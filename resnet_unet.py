@@ -623,20 +623,21 @@ class UPerNet(nn.Module):
 class deep_residual_unet(nn.Module):
 
     def __init__(self,num_class=1):
-        self.inplanes = 2048
-	super(deep_residual_unet,self).__init__()
+    self.inplanes = 2048
+    super(deep_residual_unet,self).__init__()
         
-        self.center=self._make_layer(Bottleneck,32*8,1,stride=2)
-	self.dec5=self._make_layer(Bottleneck,32*8,1,stride=1)
-        self.dec4=self._make_layer(Bottleneck,32*4,1,stride=1)
-	self.dec3=self._make_layer(Bottleneck,32*2,1,stride=1)
-	self.dec2=self._make_layer(Bottleneck,32,1,stride=1)
-	self.dec1=self._make_layer(Bottleneck,16,1,stride=1)
-	self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
-	self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+    
+    self.center=self._make_layer(Bottleneck,32*8,1,stride=2)
+    self.dec5=self._make_layer(Bottleneck,32*8,1,stride=1)
+    self.dec4=self._make_layer(Bottleneck,32*4,1,stride=1)
+    self.dec3=self._make_layer(Bottleneck,32*2,1,stride=1)
+    self.dec2=self._make_layer(Bottleneck,32,1,stride=1)
+    self.dec1=self._make_layer(Bottleneck,16,1,stride=1)
+    self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
+    self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
 
-        # last conv
-        self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
+    # last conv
+    self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -656,13 +657,13 @@ class deep_residual_unet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self,conv_out):
-    	center=self.upsample2x(self.center(conv_out[-1]))
-    	dec5=self.upsample2x(self.dec5(torch.concat([conv_out[-1],center],1)))
-    	dec4=self.upsample2x(self.dec4(torch.concat([conv_out[-2],dec5],1)))
-    	dec3=self.upsample2x(self.dec3(torch.concat([conv_out[-3],dec4],1)))
-    	dec2=self.upsample2x(self.dec2(torch.concat([conv_out[-4],dec3],1)))
-    	dec1=self.upsample2x(self.dec1(dec2))
-    	x=self.cbr(dec1)
+        center=self.upsample2x(self.center(conv_out[-1]))
+        dec5=self.upsample2x(self.dec5(torch.concat([conv_out[-1],center],1)))
+        dec4=self.upsample2x(self.dec4(torch.concat([conv_out[-2],dec5],1)))
+        dec3=self.upsample2x(self.dec3(torch.concat([conv_out[-3],dec4],1)))
+        dec2=self.upsample2x(self.dec2(torch.concat([conv_out[-4],dec3],1)))
+        dec1=self.upsample2x(self.dec1(dec2))
+        x=self.cbr(dec1)
         x = self.conv_last(x)
         return x
 
