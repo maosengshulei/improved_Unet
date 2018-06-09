@@ -175,6 +175,8 @@ class ModelBuilder():
             net_decoder = deep_residual_unet(
                 num_class=num_class
                 )
+        elif arch == 'recurrent_unet':
+            net_decoder = RCL_Unet(num_class=num_class)
         else:
             raise Exception('Architecture undefined!')
 
@@ -670,42 +672,37 @@ class deep_residual_unet(nn.Module):
 
 
 class RCLblock(nn.Module):
-	def  __init__(self,inplanes,planes):
-		super(RCLblock,self).__init__()
-		self.conv1=nn.Sequential(
-			conv3x3(inplanes,planes),
-			nn.BatchNorm2d(planes))
-		self.rcl=nn.Sequential(
-            conv3x3(planes,planes),
-            nn.BatchNorm2d(planes)
-			)
-		self.bn=nn.BatchNorm2d(planes)
+    def __init__(self,inplanes,planes):
+	super(RCLblock,self).__init__()
+ 	self.conv1=nn.Sequential(conv3x3(inplanes,planes),nn.BatchNorm2d(planes))
+	self.rcl=nn.Sequential(conv3x3(planes,planes),nn.BatchNorm2d(planes))
+	self.bn=nn.BatchNorm2d(planes)
 
 
-	def forward(self,input_map):
-		conv1=self.conv1(input_map)
-		conv2=self.rcl(conv1)
-		conv2 += conv1
-		conv2=self.bn(conv2)
-		conv3=self.rcl(conv2)
-	    conv3 += conv1
-	    conv3=self.bn(conv3)
-	    x=nn.ReLU(conv3,inplace=True)
-	    return x
+    def forward(self,input_map):
+	conv1=self.conv1(input_map)
+	conv2=self.rcl(conv1)
+	conv2 += conv1
+	conv2=self.bn(conv2)
+	conv3=self.rcl(conv2)
+	conv3 += conv1
+	conv3=self.bn(conv3)
+	x=nn.ReLU(conv3,inplace=True)
+	return x
 
 class RCL_Unet(nn.Module):
-	def __init__(self,inplanes,planes):
-		super(RCL_Unet,self).__init__()
-		self.pool = nn.MaxPool2d(2, 2)
-		self.center=nn.Sequential(
+    def __init__(self,num_class=1,planes=32):
+	super(RCL_Unet,self).__init__()
+	self.pool = nn.MaxPool2d(2, 2)
+	self.center=nn.Sequential(
             RCLblock(2048,planes*8)
             nn.MaxPool2d(2,2)
 			)
-		self.dec5=RCLblock(2048+planes*8,planes*8)
-		self.dec4=RCLblock(1024+planes*8,planes*4)
-		self.dec3=RCLblock(512+planes*4,planes*4)
-		self.dec2=RCLblock(256+planes*4,planes*2)
-		self,dec1=RCLblock(planes*2,planes)
+	self.dec5=RCLblock(2048+planes*8,planes*8)
+	self.dec4=RCLblock(1024+planes*8,planes*4)
+	self.dec3=RCLblock(512+planes*4,planes*4)
+	self.dec2=RCLblock(256+planes*4,planes*2)
+	self,dec1=RCLblock(planes*2,planes)
         self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
 
         self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
