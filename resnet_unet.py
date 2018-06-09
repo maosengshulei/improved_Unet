@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchvision
 import resnet
 import resnext
+from resnet import Bottleneck
 model_urls = {
     'resnet50': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet50-imagenet.pth',
     'resnet101': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet101-imagenet.pth'
@@ -623,33 +624,33 @@ class UPerNet(nn.Module):
 class deep_residual_unet(nn.Module):
 
     def __init__(self,num_class=1):
-    self.inplanes = 2048
-    super(deep_residual_unet,self).__init__()
-        
-    
-    self.center=self._make_layer(Bottleneck,32*8,1,stride=2)
-    self.dec5=self._make_layer(Bottleneck,32*8,1,stride=1)
-    self.dec4=self._make_layer(Bottleneck,32*4,1,stride=1)
-    self.dec3=self._make_layer(Bottleneck,32*2,1,stride=1)
-    self.dec2=self._make_layer(Bottleneck,32,1,stride=1)
-    self.dec1=self._make_layer(Bottleneck,16,1,stride=1)
-    self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
-    self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+        self.inplanes = 2048
+        super(deep_residual_unet,self).__init__()
+
+
+        self.center=self._make_layer(Bottleneck,2048,32*8,1,stride=2)
+        self.dec5=self._make_layer(Bottleneck,2048+32*8*4,32*8,1,stride=1)
+        self.dec4=self._make_layer(Bottleneck,1024+32*8*4,32*4,1,stride=1)
+        self.dec3=self._make_layer(Bottleneck,512+32*4*4,32*2,1,stride=1)
+        self.dec2=self._make_layer(Bottleneck,256+32*2*4,32,1,stride=1)
+        self.dec1=self._make_layer(Bottleneck,32*4,16,1,stride=1)
+        self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
+        self.cbr = conv3x3_bn_relu(64,64, 1)
 
     # last conv
-    self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
+        self.conv_last = nn.Conv2d(64,num_class, 1, 1, 0)
 
-    def _make_layer(self, block, planes, blocks, stride=1):
+    def _make_layer(self, block, in_planes, planes, blocks, stride=1):
         downsample = None
-        if stride != 1 or self.inplanes != planes * block.expansion:
+        if stride != 1 or in_planes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
+                nn.Conv2d(in_planes, planes * block.expansion,
                           kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes * block.expansion),
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample))
+        layers.append(block(in_planes, planes, stride, downsample))
         self.inplanes = planes * block.expansion
         for i in range(1, blocks):
             layers.append(block(self.inplanes, planes))
@@ -658,10 +659,10 @@ class deep_residual_unet(nn.Module):
 
     def forward(self,conv_out):
         center=self.upsample2x(self.center(conv_out[-1]))
-        dec5=self.upsample2x(self.dec5(torch.concat([conv_out[-1],center],1)))
-        dec4=self.upsample2x(self.dec4(torch.concat([conv_out[-2],dec5],1)))
-        dec3=self.upsample2x(self.dec3(torch.concat([conv_out[-3],dec4],1)))
-        dec2=self.upsample2x(self.dec2(torch.concat([conv_out[-4],dec3],1)))
+        dec5=self.upsample2x(self.dec5(torch.cat([conv_out[-1],center],1)))
+        dec4=self.upsample2x(self.dec4(torch.cat([conv_out[-2],dec5],1)))
+        dec3=self.upsample2x(self.dec3(torch.cat([conv_out[-3],dec4],1)))
+        dec2=self.upsample2x(self.dec2(torch.cat([conv_out[-4],dec3],1)))
         dec1=self.upsample2x(self.dec1(dec2))
         x=self.cbr(dec1)
         x = self.conv_last(x)
