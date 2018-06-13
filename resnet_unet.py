@@ -547,7 +547,7 @@ class UPerNet(nn.Module):
             self.ppm_pooling.append(nn.AdaptiveAvgPool2d(scale))
             self.ppm_conv.append(nn.Sequential(
                 nn.Conv2d(fc_dim, 512, kernel_size=1, bias=False),
-                SynchronizedBatchNorm2d(512),
+                nn.BatchNorm2d(512),
                 nn.ReLU(inplace=True)
             ))
         self.ppm_pooling = nn.ModuleList(self.ppm_pooling)
@@ -559,7 +559,7 @@ class UPerNet(nn.Module):
         for fpn_inplane in fpn_inplanes[:-1]: # skip the top layer
             self.fpn_in.append(nn.Sequential(
                 nn.Conv2d(fpn_inplane, fpn_dim, kernel_size=1, bias=False),
-                SynchronizedBatchNorm2d(fpn_dim),
+                nn.BatchNorm2d(fpn_dim),
                 nn.ReLU(inplace=True)
             ))
         self.fpn_in = nn.ModuleList(self.fpn_in)
@@ -585,20 +585,20 @@ class UPerNet(nn.Module):
             ppm_out.append(pool_conv(nn.functional.upsample(
                 pool_scale(conv5),
                 (input_size[2], input_size[3]),
-                mode='bilinear', align_corners=False)))
+                mode='bilinear')))
         ppm_out = torch.cat(ppm_out, 1)
         f = self.ppm_last_conv(ppm_out)
 
         fpn_feature_list = [f]
-        for i in reversed(range(len(conv_out) - 1)):
+        for i in reversed(range(1,len(conv_out) - 1)):
             conv_x = conv_out[i]
-            conv_x = self.fpn_in[i](conv_x) # lateral branch
+            conv_x = self.fpn_in[i-1](conv_x) # lateral branch
 
             f = nn.functional.upsample(
-                f, size=conv_x.size()[2:], mode='bilinear', align_corners=False) # top-down branch
+                f, size=conv_x.size()[2:], mode='bilinear') # top-down branch
             f = conv_x + f
 
-            fpn_feature_list.append(self.fpn_out[i](f))
+            fpn_feature_list.append(self.fpn_out[i-1](f))
 
         fpn_feature_list.reverse() # [P2 - P5]
         output_size = fpn_feature_list[0].size()[2:]
@@ -607,7 +607,7 @@ class UPerNet(nn.Module):
             fusion_list.append(nn.functional.upsample(
                 fpn_feature_list[i],
                 output_size,
-                mode='bilinear', align_corners=False))
+                mode='bilinear'))
         fusion_out = torch.cat(fusion_list, 1)
         x = self.conv_last(fusion_out)
 
@@ -622,7 +622,9 @@ class UPerNet(nn.Module):
 
         x = nn.functional.log_softmax(x, dim=1)
         '''
-        return
+        return x
+
+
 class deep_residual_unet(nn.Module):
 
     def __init__(self,num_class=1):
@@ -677,7 +679,7 @@ class RCLblock(nn.Module):
         self.conv1=nn.Sequential(conv3x3(inplanes,planes),nn.BatchNorm2d(planes))
         self.rcl=nn.Sequential(conv3x3(planes,planes),nn.BatchNorm2d(planes))
         self.bn=nn.BatchNorm2d(planes)
-
+        self.rl=nn.ReLU(inplace=True)
 
     def forward(self,input_map):
         conv1=self.conv1(input_map)
@@ -687,7 +689,7 @@ class RCLblock(nn.Module):
         conv3=self.rcl(conv2)
         conv3 += conv1
         conv3=self.bn(conv3)
-        x=nn.ReLU(conv3,inplace=True)
+        x=self.rl(conv3)
         return x
 
 class RCL_Unet(nn.Module):
@@ -695,26 +697,26 @@ class RCL_Unet(nn.Module):
         super(RCL_Unet,self).__init__()
         self.pool = nn.MaxPool2d(2, 2)
         self.center=nn.Sequential(
-            RCLblock(2048,planes*8)
+            RCLblock(2048,planes*8),
             nn.MaxPool2d(2,2)
             )
         self.dec5=RCLblock(2048+planes*8,planes*8)
         self.dec4=RCLblock(1024+planes*8,planes*4)
         self.dec3=RCLblock(512+planes*4,planes*4)
         self.dec2=RCLblock(256+planes*4,planes*2)
-        self,dec1=RCLblock(planes*2,planes)
+        self.dec1=RCLblock(planes*2,planes)
         self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
 
-        self.cbr = conv3x3_bn_relu(num_filters, num_filters, 1)
+        self.cbr = conv3x3_bn_relu(planes,planes, 1)
 
         # last conv
-        self.conv_last = nn.Conv2d(num_filters,num_class, 1, 1, 0)
+        self.conv_last = nn.Conv2d(planes,num_class, 1, 1, 0)
 
     def forward(self,conv_out):
-        center=nn.upsample2x(self.center(conv_out[-1]))
+        center=self.upsample2x(self.center(conv_out[-1]))
         dec5=self.upsample2x(self.dec5(torch.cat([conv_out[-1],center],1)))
         dec4=self.upsample2x(self.dec4(torch.cat([conv_out[-2],dec5],1)))
-        dec4=self.upsample2x(self.dec3(torch.cat([conv_out[-3],dec4],1)))
+        dec3=self.upsample2x(self.dec3(torch.cat([conv_out[-3],dec4],1)))
         dec2=self.upsample2x(self.dec2(torch.cat([conv_out[-4],dec3],1)))
         dec1=self.upsample2x(self.dec1(dec2))
         x=self.cbr(dec1)

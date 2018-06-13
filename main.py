@@ -105,7 +105,7 @@ def main():
     parser.add_argument('--use_resnet', type=int,default=True)
     parser.add_argument('--arch_encoder', default='resnet50',
                         help="architecture of net_encoder")
-    parser.add_argument('--arch_decoder', default='recurrent_unet',
+    parser.add_argument('--arch_decoder', default='upernet',
                         help="architecture of net_decoder")
     parser.add_argument('--weights_encoder', default='',
                         help="weights to finetune net_encoder")
@@ -185,7 +185,7 @@ def main():
         checkpoint = torch.load(resume)
         net_encoder.load_state_dict(checkpoint['encoder_model_state_dict'])
         net_decoder.load_state_dict(checkpoint['decoder_model_state_dict'])
-        model=SegmentationModule(net_encoder,net_decoder)
+        model=SegmentationModule(net_encoder,net_decoder,deep_sup_factor)
         nets=(net_encoder,net_decoder)
         start_epoch = checkpoint['epoch']
         start_iteration = checkpoint['iteration']

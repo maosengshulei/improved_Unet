@@ -12,7 +12,7 @@ from torch.utils import data
 from torch.autograd import Variable
 from resnet_unet import ModelBuilder, SegmentationModule
 
-checkpoint='/home/paperspace/DL/improved_Unet/logs/unet_no_pretrained/model_best.pth.tar'
+checkpoint='/home/paperspace/DL/improved_Unet/logs/ceshi/model_best.pth.tar'
 root = os.path.expanduser('~/data/datasets')
 
 class TestPlaqueseg(data.Dataset):
@@ -52,13 +52,13 @@ class TestPlaqueseg(data.Dataset):
             return img,file_name
 
     def transform(self, img):
-        
+
         dt_trans=torchvision.transforms.Compose([
         torchvision.transforms.Normalize(mean=[102.9801,115.9465,122.7717],std=[1.,1.,1.])])
         img = img.transpose(2, 0, 1)
         img = torch.from_numpy(img).float()
         return dt_trans(img)
-        
+
         #img=torch.from_numpy(np.moveaxis(img,-1,0)).float()
         return img
 
@@ -79,20 +79,22 @@ if __name__ == '__main__':
     check_point=torch.load(checkpoint)
     model.load_state_dict(check_point['model_state_dict'])
     '''
+    new_root='./test'
+    cuda=torch.cuda.is_available()
     builder = ModelBuilder()
     net_encoder = builder.build_encoder(
         arch='resnet50')
     net_decoder = builder.build_decoder(
-        arch='c2_bilinear',
+        arch='ppm_bilinear',
         num_class=1)
     model = SegmentationModule(
-            net_encoder, net_decoder)
+            net_encoder, net_decoder,0)
     check_point=torch.load(checkpoint)
     net_encoder.load_state_dict(check_point['encoder_model_state_dict'])
     net_decoder.load_state_dict(check_point['decoder_model_state_dict'])
     model = SegmentationModule(
-            net_encoder, net_decoder)
-    
+            net_encoder, net_decoder,0)
+
     if cuda:
         model=model.cuda()
 
