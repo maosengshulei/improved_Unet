@@ -27,7 +27,7 @@ def cyclic_lr(epoch, init_lr=1e-4, num_epochs_per_cycle=5, cycle_epochs_decay=2,
 class Trainer(object):
 
     def __init__(self, cuda, model, optimizer,use_resnet,
-                 train_loader, val_loader, out, max_iter,deep_sup_factor,
+                 train_loader, val_loader, test_loader, out, max_iter,deep_sup_factor,
                  sz_average=False, interval_validate=None):
         self.cuda = cuda
 
@@ -37,6 +37,7 @@ class Trainer(object):
         self.deep_sup_factor=deep_sup_factor
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.test_loader=test_loader
 
         self.timestamp_start = \
             datetime.datetime.now(pytz.timezone('Asia/Tokyo'))
@@ -172,6 +173,28 @@ class Trainer(object):
             shutil.copy(osp.join(self.out, 'checkpoint.pth.tar'),
                         osp.join(self.out, 'model_best.pth.tar'))
             print('best_mean_iu={}'.format(self.best_mean_iu))
+        if is_best:
+        	new_root='./test'
+        	for batch_id,(input,file_name) in tqdm(enumerate(test_loader),total=len(test_loader),desc='predict'):
+                if cuda:
+                    input=input.cuda()
+                input=Variable(input,volatile=True)
+                output=F.sigmoid(model(input))
+                mask1=output.data>0.5
+                mask2=output.data<=0.5
+                output.data[mask1]=1
+                output.data[mask2]=0
+                output=torch.unsqueeze(output,1)
+                print(output.data.shape)
+                mask = (output.data.cpu().int() * 255)
+
+                for i,filename in enumerate(file_name):
+                    img=mask[i,:,:,:]
+                    img=torch.squeeze(img,0)
+                    print(img.shape)
+                    dt_trans=torchvision.transforms.ToPILImage()
+                    img=dt_trans(img).convert('1')
+                    img.save(os.path.join(new_root,filename))
 
         if training:
             self.model.train()

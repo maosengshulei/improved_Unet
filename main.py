@@ -14,6 +14,19 @@ import plaque
 import unet_trainer
 from resnet_unet import ModelBuilder, SegmentationModule
 
+
+
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+import torchvision
+from torch.nn import functional as F
+from PIL import Image
+from torch.utils import data
+from torch.autograd import Variable
+
+
 configurations = {
     # same configuration as original work
     # https://github.com/shelhamer/fcn.berkeleyvision.org
@@ -97,6 +110,56 @@ def create_optimizers(nets, args):
     return (optimizer_encoder, optimizer_decoder)
 
 
+class TestPlaqueseg(data.Dataset):
+    class_names=np.array(['background','plaque'])
+
+    def __init__(self, root,transform=False):
+        self.root = root
+
+        self._transform = transform
+        self.split='test'
+
+        dataset_dir = os.path.join(self.root, 'unet_xinxueguan')
+        self.files = []
+
+        imgsets_file = os.path.join(
+            dataset_dir, 'Segmentation/%s.txt' % self.split)
+        for did in open(imgsets_file):
+            did = did.strip()
+            img_file = os.path.join(dataset_dir, 'IMAGES/%s' % did)
+            self.files.append(img_file)
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, index):
+
+        # load image
+        img_file = self.files[index]
+        file_name=img_file.split('/')[-1]
+        img = Image.open(img_file)
+        img = np.array(img, dtype=np.uint8)
+        # load label
+
+        if self._transform:
+            return self.transform(img),file_name
+        else:
+            return img,file_name
+
+    def transform(self, img):
+
+        dt_trans=torchvision.transforms.Compose([
+        torchvision.transforms.Normalize(mean=[102.9801,115.9465,122.7717],std=[1.,1.,1.])])
+        img = img.transpose(2, 0, 1)
+        img = torch.from_numpy(img).float()
+        return dt_trans(img)
+
+        #img=torch.from_numpy(np.moveaxis(img,-1,0)).float()
+        return img
+
+
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-g', '--gpu', type=int, required=True)
@@ -156,6 +219,12 @@ def main():
         plaque.Plaqueseg(
             root, split='val', transform=True),
         batch_size=2, shuffle=False, **kwargs)
+    test_loader=DataLoader(dataset=TestPlaqueseg(root,transform=True),
+        shuffle=False,
+        batch_size=4,
+        num_workers=4,
+        pin_memory=True
+        )
 
     # 2. model
 
@@ -218,6 +287,7 @@ def main():
         use_resnet=use_resnet,
         train_loader=train_loader,
         val_loader=val_loader,
+        test_loader=test_loader
         out=out,
         max_iter=cfg['max_iteration'],
         deep_sup_factor=deep_sup_factor,

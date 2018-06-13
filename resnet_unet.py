@@ -3,6 +3,7 @@ import torch.nn as nn
 import torchvision
 import resnet
 import resnext
+import torch.nn.functional as F
 from resnet import Bottleneck
 model_urls = {
     'resnet50': 'http://sceneparsing.csail.mit.edu/model/pretrained_resnet/resnet50-imagenet.pth',
@@ -115,7 +116,7 @@ class ModelBuilder():
                                         dilate_scale=16)
         elif arch == 'resnext50':
             orig_resnext = resnext.__dict__['resnext50'](pretrained=pretrained)
-            net_encoder = Resnet(orig_resnext) # we can still use class Resnet
+            net_encoder = Resnext(orig_resnext) # we can still use class Resnet
         else:
             raise Exception('Architecture undefined!')
 
@@ -224,6 +225,34 @@ class Resnet(nn.Module):
         return conv_out
 
 
+class Resnext(nn.Module):
+    def __init__(self, orig_resnet):
+        super(Resnext, self).__init__()
+
+        # take pretrained resnet, except AvgPool and FC
+        self.conv0 = orig_resnet.conv0
+        self.bn0 = orig_resnet.bn0
+
+        self.pool0 = orig_resnet.pool0
+        
+        self.layer1 = orig_resnet.layer1
+        self.layer2 = orig_resnet.layer2
+        self.layer3 = orig_resnet.layer3
+        self.layer4 = orig_resnet.layer4
+
+    def forward(self, x):
+        conv_out=[]
+        x = F.ReLU(self.bn0(self.conv0(x)))
+
+        
+        x = self.pool0(x)
+        conv_out.append(x)
+        x = self.layer1(x);conv_out.append(x)
+        x = self.layer2(x);conv_out.append(x)
+        x = self.layer3(x);conv_out.append(x)
+        x = self.layer4(x);conv_out.append(x)
+        return conv_out
+
 class ResnetDilated(nn.Module):
     def __init__(self, orig_resnet, dilate_scale=8):
         super(ResnetDilated, self).__init__()
@@ -284,6 +313,9 @@ class ResnetDilated(nn.Module):
 
 
         return conv_out
+
+
+
 
 class C1BilinearDeepSup(nn.Module):
     def __init__(self, num_class=150, fc_dim=2048, use_softmax=False):
