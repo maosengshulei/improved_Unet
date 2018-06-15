@@ -15,7 +15,7 @@ import unet_trainer
 from resnet_unet import ModelBuilder, SegmentationModule
 
 
-
+import numpy as np
 from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
@@ -287,7 +287,7 @@ def main():
         use_resnet=use_resnet,
         train_loader=train_loader,
         val_loader=val_loader,
-        test_loader=test_loader
+        test_loader=test_loader,
         out=out,
         max_iter=cfg['max_iteration'],
         deep_sup_factor=deep_sup_factor,

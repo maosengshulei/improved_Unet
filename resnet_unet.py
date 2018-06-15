@@ -178,7 +178,10 @@ class ModelBuilder():
                 )
         elif arch == 'recurrent_unet':
             net_decoder = RCL_Unet(num_class=num_class)
+        elif arch == 'residual_recurrent_unet':
+            net_decoder = residual_RCL_Unet(num_class=num_class)
         else:
+
             raise Exception('Architecture undefined!')
 
         # net_decoder.apply(self.weights_init)
@@ -234,7 +237,7 @@ class Resnext(nn.Module):
         self.bn0 = orig_resnet.bn0
 
         self.pool0 = orig_resnet.pool0
-        
+
         self.layer1 = orig_resnet.layer1
         self.layer2 = orig_resnet.layer2
         self.layer3 = orig_resnet.layer3
@@ -242,9 +245,9 @@ class Resnext(nn.Module):
 
     def forward(self, x):
         conv_out=[]
-        x = F.ReLU(self.bn0(self.conv0(x)))
+        x = F.relu(self.bn0(self.conv0(x)))
 
-        
+
         x = self.pool0(x)
         conv_out.append(x)
         x = self.layer1(x);conv_out.append(x)
@@ -373,7 +376,7 @@ class C1Bilinear(nn.Module):
         else:
             x = nn.functional.log_softmax(x, dim=1)
         '''
-        x = nn.functional.upsample(x, scale_factor=8, mode='bilinear')
+        x = nn.functional.upsample(x, scale_factor=32, mode='bilinear')
         return x
 
 class C2Bilinear(nn.Module):
@@ -721,7 +724,10 @@ class RCLblock(nn.Module):
         conv3=self.rcl(conv2)
         conv3 += conv1
         conv3=self.bn(conv3)
-        x=self.rl(conv3)
+        conv4=self.rcl(conv3)
+        conv4 += conv1
+        conv4=self.bn(conv4)
+        x=self.rl(conv4)
         return x
 
 class RCL_Unet(nn.Module):
@@ -755,6 +761,60 @@ class RCL_Unet(nn.Module):
         x = self.conv_last(x)
         return x
 
+class residual_RCLblock(nn.Module):
+    def __init__(self,inplanes,planes):
+        super(residual_RCLblock,self).__init__()
+        self.conv1=nn.Sequential(conv3x3(inplanes,planes),nn.BatchNorm2d(planes))
+        self.rcl=nn.Sequential(conv3x3(planes,planes),nn.BatchNorm2d(planes))
+        self.bn=nn.BatchNorm2d(planes)
+        self.rl=nn.ReLU(inplace=True)
+        self.downsample=nn.Sequential(nn.Conv2d(inplanes,planes,kernel_size=1,stride=1,bias=False),
+                        nn.BatchNorm2d(planes))
+
+    def forward(self,input_map):
+        conv1=self.conv1(input_map)
+        conv2=self.rcl(conv1)
+        conv2 += conv1
+        conv2=self.bn(conv2)
+        conv3=self.rcl(conv2)
+        conv3 += conv1
+        conv3=self.bn(conv3)
+        x=self.rl(conv3)
+        downsample=self.downsample(input_map)
+        x += downsample
+        return x
+
+
+class residual_RCL_Unet(nn.Module):
+    def __init__(self,num_class=1,planes=32):
+        super(residual_RCL_Unet,self).__init__()
+        self.pool = nn.MaxPool2d(2, 2)
+        self.center=nn.Sequential(
+            residual_RCLblock(2048,planes*8),
+            nn.MaxPool2d(2,2)
+            )
+        self.dec5=residual_RCLblock(2048+planes*8,planes*8)
+        self.dec4=residual_RCLblock(1024+planes*8,planes*4)
+        self.dec3=residual_RCLblock(512+planes*4,planes*4)
+        self.dec2=residual_RCLblock(256+planes*4,planes*2)
+        self.dec1=residual_RCLblock(planes*2,planes)
+        self.upsample2x=nn.Upsample(scale_factor=2, mode='bilinear')
+
+        self.cbr = conv3x3_bn_relu(planes,planes, 1)
+
+        # last conv
+        self.conv_last = nn.Conv2d(planes,num_class, 1, 1, 0)
+
+    def forward(self,conv_out):
+        center=self.upsample2x(self.center(conv_out[-1]))
+        dec5=self.upsample2x(self.dec5(torch.cat([conv_out[-1],center],1)))
+        dec4=self.upsample2x(self.dec4(torch.cat([conv_out[-2],dec5],1)))
+        dec3=self.upsample2x(self.dec3(torch.cat([conv_out[-3],dec4],1)))
+        dec2=self.upsample2x(self.dec2(torch.cat([conv_out[-4],dec3],1)))
+        dec1=self.upsample2x(self.dec1(dec2))
+        x=self.cbr(dec1)
+        x = self.conv_last(x)
+        return x
 
 
 

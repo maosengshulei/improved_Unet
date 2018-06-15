@@ -17,7 +17,8 @@ from torch.autograd import Variable
 import tqdm
 import fcn
 import utils
-
+import torchvision
+from PIL import Image
 
 def cyclic_lr(epoch, init_lr=1e-4, num_epochs_per_cycle=5, cycle_epochs_decay=2, lr_decay_factor=0.5):
     epoch_in_cycle = epoch % num_epochs_per_cycle
@@ -174,12 +175,13 @@ class Trainer(object):
                         osp.join(self.out, 'model_best.pth.tar'))
             print('best_mean_iu={}'.format(self.best_mean_iu))
         if is_best:
-        	new_root='./test'
-        	for batch_id,(input,file_name) in tqdm(enumerate(test_loader),total=len(test_loader),desc='predict'):
-                if cuda:
-                    input=input.cuda()
+            new_root='./test'
+            for batch_id,(input,file_name) in enumerate(self.test_loader):
+
+                input=input.cuda()
                 input=Variable(input,volatile=True)
-                output=F.sigmoid(model(input))
+                predict=self.model(input)
+                output=F.sigmoid(predict)
                 mask1=output.data>0.5
                 mask2=output.data<=0.5
                 output.data[mask1]=1

@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 from torch.autograd import Variable
 
-__all__ = ['resnext50'] 
+__all__ = ['resnext50']
 
 class ResBottleBlock(nn.Module):
 
@@ -154,10 +154,17 @@ def resnext50(pretrained=False, **kwargs):
         pretrained (bool): If True, returns a model pre-trained on Places
     """
     model = ResNeXt(num_blocks=[3, 4, 6, 3], cardinality=32, bottleneck_width=4)
-    checkpoint = './pretrained/'
+    checkpoint = './pretrained/ResNext50_checkpoint_best.pth.tar'
     if pretrained:
 
-        model.load_state_dict(checkpoint)
+        checkpoint=(torch.load(checkpoint))
+        state_dict=checkpoint['state_dict']
+        new_state_dict=OrderedDict()
+        for k,v in state_dict.items():
+            name=k[7:]
+            new_state_dict[name]=v
+        model.load_state_dict(new_state_dict)
+        
     return model
 
 # def test():
